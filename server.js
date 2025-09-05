@@ -1,3 +1,9 @@
+const express = require('express');
+const path = require('path');
+const fs = require('fs');
+
+const app = express();
+
 // Route to fetch and display lista.txt
 app.get('/lista', (req, res) => {
     const filePath = path.join(__dirname, 'lista.txt');
@@ -9,4 +15,9 @@ app.get('/lista', (req, res) => {
         }
         res.type('text/plain').send(data);
     });
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
 });
