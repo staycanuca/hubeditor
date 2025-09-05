@@ -65,13 +65,13 @@ const authMiddleware = (req, res, next) => {
     return next();
 };
 
+// Serve static files for the editor interface
+app.use(express.static('public'));
+
 // Apply authentication to all routes DEFINED BELOW THIS LINE
 app.use(authMiddleware);
 
 // --- Protected Routes ---
-
-// Serve static files for the editor interface
-app.use(express.static('public'));
 
 // Use middleware to parse plain text bodies
 app.use(express.text({ limit: '50mb' }));
