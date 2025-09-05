@@ -2,8 +2,58 @@ const express = require('express');
 const path = require('path');
 const { put, head, del } = require('@vercel/blob');
 const auth = require('basic-auth');
+const zlib = require('zlib');
 
 const app = express();
+
+// --- Encoding/Decoding Functions ---
+function encodeContent(text) {
+    if (!text) {
+        return '';
+    }
+    const data = { 'data': text };
+    const jsonData = JSON.stringify(data);
+    const compressed = zlib.deflateSync(jsonData);
+    const encoded = compressed.toString('base64');
+    const reversed = encoded.split('').reverse().join('');
+    return reversed;
+}
+
+function decodeContent(encodedText) {
+    if (!encodedText) {
+        return '';
+    }
+    try {
+        const reversed = encodedText.split('').reverse().join('');
+        const decoded = Buffer.from(reversed, 'base64');
+        const decompressed = zlib.inflateSync(decoded);
+        const jsonData = decompressed.toString('utf8');
+        const data = JSON.parse(jsonData);
+        return data.data;
+    } catch (error) {
+        console.log("Content is not encoded or is corrupt, treating as plain text.");
+        return encodedText;
+    }
+}
+
+// --- Public Download Route ---
+app.get('/lista.txt', async (req, res) => {
+    try {
+        const blob = await head('lista.txt');
+        res.setHeader('Content-Disposition', 'attachment; filename="lista.txt"');
+        res.setHeader('Content-Type', 'text/plain');
+        const response = await fetch(blob.url);
+        const text = await response.text();
+        res.send(text);
+    } catch (error) {
+        if (error.status === 404) {
+            res.status(404).send("File not found.");
+        } else {
+            console.error('Error fetching blob for download:', error.message);
+            res.status(500).send('Could not download file.');
+        }
+    }
+});
 
 // Servește fișierele statice din directorul "public"
 app.use(express.static(path.join(__dirname, 'public')));
@@ -32,8 +82,9 @@ app.get('/lista', authMiddleware, async (req, res) => {
     try {
         const blob = await head('lista.txt');
         const response = await fetch(blob.url);
-        const text = await response.text();
-        res.type('text/plain').send(text);
+        const encodedContent = await response.text();
+        const decodedContent = decodeContent(encodedContent);
+        res.type('text/plain').send(decodedContent);
     } catch (error) {
         if (error.status === 404) {
             res.type('text/plain').send('');
@@ -45,9 +96,10 @@ app.get('/lista', authMiddleware, async (req, res) => {
 });
 
 app.post('/lista', authMiddleware, async (req, res) => {
-    const content = req.body;
+    const plainContent = req.body;
+    const encodedContent = encodeContent(plainContent);
     try {
-        await put('lista.txt', content, { access: 'public' });
+        await put('lista.txt', encodedContent, { access: 'public' });
         res.status(200).send('File saved successfully.');
     } catch (error) {
         console.error('Error writing blob:', error.message);
