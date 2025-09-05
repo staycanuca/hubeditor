@@ -46,7 +46,7 @@ app.get('/lista.txt', async (req, res) => {
         const text = await response.text();
         res.send(text);
     } catch (error) {
-        if (error.status === 404) {
+        if (error.code === 'not_found') {
             res.status(404).send("File not found.");
         } else {
             console.error('Error fetching blob for download:', error.message);
@@ -86,7 +86,7 @@ app.get('/lista', authMiddleware, async (req, res) => {
         const decodedContent = decodeContent(encodedContent);
         res.type('text/plain').send(decodedContent);
     } catch (error) {
-        if (error.status === 404) {
+        if (error.code === 'not_found') {
             res.type('text/plain').send('');
         } else {
             console.error('Error fetching blob:', error.message);
