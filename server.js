@@ -33,11 +33,25 @@ function decodeContent(encodedText) {
         const data = JSON.parse(jsonData);
         return data.data;
     } catch (error) {
-        // If any step fails (e.g., file is not encoded), assume it's plain text.
         console.log("Content is not encoded or is corrupt, treating as plain text.");
         return encodedText;
     }
 }
+
+// --- Public Download Route ---
+// This route is defined BEFORE authentication is applied.
+app.get('/lista.txt', (req, res) => {
+    res.sendFile(listaFilePath, (err) => {
+        if (err) {
+            if (err.code === "ENOENT") {
+                res.status(404).send("File not found.");
+            } else {
+                console.error(err);
+                res.status(500).send("Error sending file.");
+            }
+        }
+    });
+});
 
 // --- Authentication Middleware ---
 const authMiddleware = (req, res, next) => {
@@ -51,14 +65,16 @@ const authMiddleware = (req, res, next) => {
     return next();
 };
 
-// Apply authentication to all routes
+// Apply authentication to all routes DEFINED BELOW THIS LINE
 app.use(authMiddleware);
 
-// Serve static files from the 'public' directory
+// --- Protected Routes ---
+
+// Serve static files for the editor interface
 app.use(express.static('public'));
 
 // Use middleware to parse plain text bodies
-app.use(express.text({ limit: '50mb' })); // Increased limit for potentially large lists
+app.use(express.text({ limit: '50mb' }));
 
 // API endpoint to get the content of lista.txt
 app.get('/api/lista', (req, res) => {
