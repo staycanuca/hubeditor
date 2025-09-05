@@ -5,7 +5,7 @@ const auth = require('basic-auth');
 const zlib = require('zlib');
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 const listaFilePath = path.join(__dirname, 'lista.txt');
 
 // --- Encoding/Decoding Functions ---
@@ -104,7 +104,4 @@ app.post('/api/lista', (req, res) => {
     });
 });
 
-app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
-    console.log('Open this URL in your browser to use the editor.');
-});
+module.exports = app;
