@@ -20,6 +20,20 @@
             justify-content: center;
             padding: 20px;
         }
+        #splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            font-size: 1.5em;
+            color: var(--dark-gray);
+        }
         .container {
             width: 100%;
             max-width: 800px;
@@ -151,7 +165,11 @@
 </head>
 <body>
 
-<div class="container">
+<div id="splash-screen">
+    <h1>Plugin Hub Kodi</h1>
+</div>
+
+<div class="container" style="display: none;">
     <h1>Hub Editor</h1>
     <div class="file-controls">
         <button id="saveFileBtn" class="btn-primary">Save Changes</button>
@@ -269,25 +287,38 @@
 
     // Load initial file content
     document.addEventListener('DOMContentLoaded', async () => {
+        const splashScreen = document.getElementById('splash-screen');
+        const container = document.querySelector('.container');
+
         try {
-                        const response = await fetch('/lista');
-            if (!response.ok) {
-                throw new Error('Failed to load file.');
+            const response = await fetch('/lista');
+            
+            if (response.status === 401) {
+                splashScreen.innerHTML = '<h1>Authentication Required</h1><p>Please refresh and enter your credentials.</p>';
+                return;
             }
+            if (!response.ok) {
+                throw new Error(`Failed to load file. Status: ${response.status}`);
+            }
+            
             const content = await response.text();
             editor.value = content;
             statusEl.textContent = 'File loaded successfully.';
+
+            // Hide splash, show content
+            splashScreen.style.display = 'none';
+            container.style.display = 'block';
+
         } catch (err) {
             console.error(err);
-            editor.value = 'Could not load lista.txt.';
-            statusEl.textContent = 'Error loading file.';
+            splashScreen.innerHTML = `<h1>Error</h1><p>${err.message}</p><p>Could not load application. Please try again later.</p>`;
         }
     });
 
     saveFileBtn.addEventListener('click', async () => {
         try {
             statusEl.textContent = 'Saving...';
-                        const response = await fetch('/lista', {
+            const response = await fetch('/lista', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'text/plain',
@@ -353,7 +384,7 @@
         const code = document.getElementById('edemCode').value.trim();
         if (code) {
             const line = `EDEM ${code}`;
-            appendToEditor(line);
+            appendToEditor(code);
             document.getElementById('edemCode').value = '';
         } else {
             statusEl.textContent = 'EDEM Code field cannot be empty.';
