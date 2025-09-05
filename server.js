@@ -15,13 +15,21 @@ app.get('/', (req, res) => {
 // Route pentru /lista
 app.get('/lista', (req, res) => {
     const filePath = path.join(__dirname, 'lista.txt');
-    fs.readFile(filePath, 'utf-8', (err, data) => {
-        if (err) {
-            console.error("Eroare la citirea fișierului lista.txt:", err.message);
-            res.status(500).send("Nu am putut încărca lista.txt");
+    console.log(`Calea completă a fișierului: ${filePath}`);
+    fs.access(filePath, fs.constants.R_OK, (accessErr) => {
+        if (accessErr) {
+            console.error(`Fișierul nu poate fi accesat:`, accessErr.message);
+            res.status(500).send("Fișierul lista.txt nu poate fi accesat.");
             return;
         }
-        res.type('text/plain').send(data);
+        fs.readFile(filePath, 'utf-8', (readErr, data) => {
+            if (readErr) {
+                console.error("Eroare la citirea fișierului lista.txt:", readErr.message);
+                res.status(500).send("Nu am putut încărca lista.txt.");
+                return;
+            }
+            res.type('text/plain').send(data);
+        });
     });
 });
 
