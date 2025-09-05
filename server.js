@@ -99,7 +99,7 @@ app.post('/lista', authMiddleware, async (req, res) => {
     const plainContent = req.body;
     const encodedContent = encodeContent(plainContent);
     try {
-        await put('lista.txt', encodedContent, { access: 'public' });
+                await put('lista.txt', encodedContent, { access: 'public', allowOverwrite: true });
         res.status(200).send('File saved successfully.');
     } catch (error) {
         console.error('Error writing blob:', error.message);
