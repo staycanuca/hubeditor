@@ -98,6 +98,11 @@
              color: white;
         }
         .btn-success:hover { background-color: #218838; }
+        .btn-warning {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        .btn-warning:hover { background-color: #e0a800; }
         
         /* Accordion Styles */
         .accordion-header {
@@ -117,10 +122,10 @@
             background-color: var(--medium-gray);
         }
         .accordion-header.active::after {
-            content: "\2212"; /* Minus sign */
+            content: "\2212";
         }
         .accordion-header::after {
-            content: '\002B'; /* Plus sign */
+            content: '\002B';
             color: var(--dark-gray);
             font-weight: bold;
             float: right;
@@ -161,6 +166,13 @@
         .hidden {
             display: none;
         }
+        #backup-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
     </style>
 </head>
 <body>
@@ -179,6 +191,7 @@
     <div class="view-switcher">
         <button id="showDirectBtn" class="active">Direct Edit</button>
         <button id="showFormsBtn">Form Edit</button>
+        <button id="showBackupBtn">Backups</button>
     </div>
 
     <div id="direct-editor-section">
@@ -188,7 +201,6 @@
 
     <div id="form-editor-section" class="hidden">
         <h2>Add Content via Form</h2>
-        
         <div class="accordion-item">
             <button class="accordion-header">Add URL List</button>
             <div class="accordion-content">
@@ -239,39 +251,52 @@
             </div>
         </div>
     </div>
+
+    <div id="backup-section" class="hidden">
+        <h2>Restore from Backup</h2>
+        <ul id="backup-list"></ul>
+    </div>
 </div>
 
 <script>
+    // --- DOM Elements ---
     const saveFileBtn = document.getElementById('saveFileBtn');
     const editor = document.getElementById('editor');
     const statusEl = document.getElementById('status');
-
+    const showDirectBtn = document.getElementById('showDirectBtn');
+    const showFormsBtn = document.getElementById('showFormsBtn');
+    const showBackupBtn = document.getElementById('showBackupBtn');
+    const directEditorSection = document.getElementById('direct-editor-section');
+    const formEditorSection = document.getElementById('form-editor-section');
+    const backupSection = document.getElementById('backup-section');
+    const backupList = document.getElementById('backup-list');
     const addListBtn = document.getElementById('addListBtn');
     const addPortalBtn = document.getElementById('addPortalBtn');
     const addM3uBtn = document.getElementById('addM3uBtn');
     const addEdemBtn = document.getElementById('addEdemBtn');
 
-    const showDirectBtn = document.getElementById('showDirectBtn');
-    const showFormsBtn = document.getElementById('showFormsBtn');
-    const directEditorSection = document.getElementById('direct-editor-section');
-    const formEditorSection = document.getElementById('form-editor-section');
+    // --- View Switching Logic ---
+    function setActiveView(activeBtn) {
+        const sections = [directEditorSection, formEditorSection, backupSection];
+        const buttons = [showDirectBtn, showFormsBtn, showBackupBtn];
+        
+        buttons.forEach(btn => btn.classList.remove('active'));
+        activeBtn.classList.add('active');
 
-    // View switching logic
-    showDirectBtn.addEventListener('click', () => {
-        directEditorSection.classList.remove('hidden');
-        formEditorSection.classList.add('hidden');
-        showDirectBtn.classList.add('active');
-        showFormsBtn.classList.remove('active');
-    });
+        sections.forEach(sec => sec.classList.add('hidden'));
+        if (activeBtn === showDirectBtn) directEditorSection.classList.remove('hidden');
+        if (activeBtn === showFormsBtn) formEditorSection.classList.remove('hidden');
+        if (activeBtn === showBackupBtn) {
+            backupSection.classList.remove('hidden');
+            loadBackups();
+        }
+    }
 
-    showFormsBtn.addEventListener('click', () => {
-        directEditorSection.classList.add('hidden');
-        formEditorSection.classList.remove('hidden');
-        showFormsBtn.classList.add('active');
-        showDirectBtn.classList.remove('active');
-    });
+    showDirectBtn.addEventListener('click', () => setActiveView(showDirectBtn));
+    showFormsBtn.addEventListener('click', () => setActiveView(showFormsBtn));
+    showBackupBtn.addEventListener('click', () => setActiveView(showBackupBtn));
 
-    // Accordion logic
+    // --- Accordion Logic ---
     const accordions = document.getElementsByClassName("accordion-header");
     for (let i = 0; i < accordions.length; i++) {
         accordions[i].addEventListener("click", function() {
@@ -285,33 +310,84 @@
         });
     }
 
-    // Load initial file content
+    // --- Core Functions ---
+    async function loadEditorContent() {
+        try {
+            const response = await fetch('/lista');
+            if (!response.ok) throw new Error(`Failed to load file. Status: ${response.status}`);
+            const content = await response.text();
+            editor.value = content;
+            statusEl.textContent = 'File loaded successfully.';
+        } catch (err) {
+            editor.value = `Could not load lista.txt. Error: ${err.message}`;
+            statusEl.textContent = 'Error loading file.';
+            throw err; // Re-throw to be caught by the initial loader
+        }
+    }
+
+    async function loadBackups() {
+        try {
+            statusEl.textContent = 'Loading backups...';
+            const response = await fetch('/backups');
+            if (!response.ok) throw new Error('Failed to load backups.');
+            const backups = await response.json();
+            
+            backupList.innerHTML = ''; // Clear previous list
+            if (backups.length === 0) {
+                backupList.innerHTML = '<li>No backups found.</li>';
+            }
+
+            backups.forEach(backup => {
+                const li = document.createElement('li');
+                const date = new Date(backup.uploadedAt).toLocaleString();
+                li.innerHTML = `
+                    <span>${date}</span>
+                    <button class="btn-warning restore-btn" data-url="${backup.url}">Restore</button>
+                `;
+                backupList.appendChild(li);
+            });
+            statusEl.textContent = 'Backups loaded.';
+        } catch (err) {
+            console.error(err);
+            statusEl.textContent = 'Error loading backups.';
+        }
+    }
+
+    async function restoreBackup(url) {
+        try {
+            statusEl.textContent = 'Restoring...';
+            const response = await fetch('/restore', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url })
+            });
+            if (!response.ok) throw new Error('Failed to restore backup.');
+            
+            statusEl.textContent = 'File restored successfully! Reloading content...';
+            await loadEditorContent();
+            setActiveView(showDirectBtn); // Switch to editor view after restore
+        } catch (err) {
+            console.error(err);
+            statusEl.textContent = 'Error restoring backup.';
+        }
+    }
+
+    // --- Event Listeners ---
     document.addEventListener('DOMContentLoaded', async () => {
         const splashScreen = document.getElementById('splash-screen');
         const container = document.querySelector('.container');
 
         try {
-            const response = await fetch('/lista');
-            
-            if (response.status === 401) {
-                splashScreen.innerHTML = '<h1>Authentication Required</h1><p>Please refresh and enter your credentials.</p>';
-                return;
-            }
-            if (!response.ok) {
-                throw new Error(`Failed to load file. Status: ${response.status}`);
-            }
-            
-            const content = await response.text();
-            editor.value = content;
-            statusEl.textContent = 'File loaded successfully.';
-
-            // Hide splash, show content
+            await loadEditorContent();
             splashScreen.style.display = 'none';
             container.style.display = 'block';
-
         } catch (err) {
-            console.error(err);
-            splashScreen.innerHTML = `<h1>Error</h1><p>${err.message}</p><p>Could not load application. Please try again later.</p>`;
+            // Handle initial load error (e.g., auth)
+            if (err.message.includes('401')) {
+                 splashScreen.innerHTML = '<h1>Authentication Required</h1><p>Please refresh and enter your credentials.</p>';
+            } else {
+                splashScreen.innerHTML = `<h1>Error</h1><p>${err.message}</p><p>Could not load application.</p>`;
+            }
         }
     });
 
@@ -320,14 +396,10 @@
             statusEl.textContent = 'Saving...';
             const response = await fetch('/lista', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'text/plain',
-                },
-                body: editor.value,
+                headers: { 'Content-Type': 'text/plain' },
+                body: editor.value
             });
-            if (!response.ok) {
-                throw new Error('Failed to save file.');
-            }
+            if (!response.ok) throw new Error('Failed to save file.');
             statusEl.textContent = 'File saved successfully!';
         } catch (err) {
             console.error(err);
@@ -335,6 +407,16 @@
         }
     });
 
+    backupList.addEventListener('click', (e) => {
+        if (e.target.classList.contains('restore-btn')) {
+            const url = e.target.dataset.url;
+            if (confirm('Are you sure you want to restore this version? The current content will be overwritten.')) {
+                restoreBackup(url);
+            }
+        }
+    });
+
+    // --- Form Helper Functions ---
     function appendToEditor(text) {
         const currentContent = editor.value;
         const separator = currentContent.length > 0 && !currentContent.endsWith('\n') ? '\n' : '';
@@ -384,7 +466,7 @@
         const code = document.getElementById('edemCode').value.trim();
         if (code) {
             const line = `EDEM ${code}`;
-            appendToEditor(code);
+            appendToEditor(line);
             document.getElementById('edemCode').value = '';
         } else {
             statusEl.textContent = 'EDEM Code field cannot be empty.';

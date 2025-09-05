@@ -1,6 +1,6 @@
 const express = require('express');
 const path = require('path');
-const { put, head, del } = require('@vercel/blob');
+const { put, head, del, list } = require('@vercel/blob');
 const auth = require('basic-auth');
 const zlib = require('zlib');
 
@@ -64,6 +64,7 @@ app.get('/', (req, res) => {
 });
 
 app.use(express.text());
+app.use(express.json());
 
 // Middleware de autentificare
 const authMiddleware = (req, res, next) => {
@@ -77,8 +78,11 @@ const authMiddleware = (req, res, next) => {
     }
 };
 
+// Protected routes below
+app.use(authMiddleware);
+
 // Route pentru /lista
-app.get('/lista', authMiddleware, async (req, res) => {
+app.get('/lista', async (req, res) => {
     try {
         const blob = await head('lista.txt');
         const response = await fetch(blob.url);
@@ -95,17 +99,77 @@ app.get('/lista', authMiddleware, async (req, res) => {
     }
 });
 
-app.post('/lista', authMiddleware, async (req, res) => {
+app.post('/lista', async (req, res) => {
     const plainContent = req.body;
     const encodedContent = encodeContent(plainContent);
+    
     try {
-                await put('lista.txt', encodedContent, { access: 'public', allowOverwrite: true });
+        // 1. Create a backup before overwriting
+        try {
+            const currentBlob = await head('lista.txt');
+            const currentContent = await (await fetch(currentBlob.url)).text();
+            const backupPathname = `lista-backup-${new Date().toISOString()}.txt`;
+            await put(backupPathname, currentContent, { access: 'public' });
+        } catch (error) {
+            if (error.code !== 'not_found') {
+                console.error('Failed to create backup:', error.message);
+                // Don't block the save operation if backup fails
+            }
+        }
+
+        // 2. Overwrite the main file
+        await put('lista.txt', encodedContent, { access: 'public', allowOverwrite: true });
+
+        // 3. Prune old backups
+        const { blobs } = await list({ prefix: 'lista-backup-' });
+        if (blobs.length > 5) {
+            const sortedBackups = blobs.sort((a, b) => new Date(a.uploadedAt) - new Date(b.uploadedAt));
+            const backupsToDelete = sortedBackups.slice(0, sortedBackups.length - 5);
+            await del(backupsToDelete.map(b => b.url));
+        }
+
         res.status(200).send('File saved successfully.');
     } catch (error) {
         console.error('Error writing blob:', error.message);
         res.status(500).send('Could not save lista.txt.');
     }
 });
+
+// Route for backups
+app.get('/backups', async (req, res) => {
+    try {
+        const { blobs } = await list({ prefix: 'lista-backup-' });
+        const sortedBackups = blobs.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
+        res.json(sortedBackups.slice(0, 5));
+    } catch (error) {
+        console.error('Error listing backups:', error.message);
+        res.status(500).send('Could not list backups.');
+    }
+});
+
+app.post('/restore', async (req, res) => {
+    const { url } = req.body;
+    if (!url) {
+        return res.status(400).send('Backup URL is required.');
+    }
+
+    try {
+        // 1. Fetch backup content
+        const backupContent = await (await fetch(url)).text();
+
+        // 2. (Optional) create a backup of the current version before restoring
+        // For simplicity, skipping this step, as the user is explicitly restoring.
+
+        // 3. Overwrite lista.txt with backup content
+        await put('lista.txt', backupContent, { access: 'public', allowOverwrite: true });
+
+        res.status(200).send('File restored successfully.');
+    } catch (error) {
+        console.error('Error restoring from backup:', error.message);
+        res.status(500).send('Could not restore file.');
+    }
+});
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
