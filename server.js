@@ -4,7 +4,15 @@ const fs = require('fs');
 
 const app = express();
 
-// Route to fetch and display lista.txt
+// Servește fișierele statice din directorul "public"
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Route pentru rădăcină
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Route pentru /lista
 app.get('/lista', (req, res) => {
     const filePath = path.join(__dirname, 'lista.txt');
     fs.readFile(filePath, 'utf-8', (err, data) => {
