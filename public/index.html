@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hub Editor</title>
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --light-gray: #f8f9fa;
+            --medium-gray: #e9ecef;
+            --dark-gray: #495057;
+            --border-color: #ced4da;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #333;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+        }
+        textarea {
+            width: 100%;
+            height: 300px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 14px;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+        }
+        .file-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .view-switcher {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 5px;
+        }
+        .view-switcher button {
+            flex-grow: 1;
+            background-color: var(--medium-gray);
+            color: var(--dark-gray);
+            border: 1px solid var(--border-color);
+        }
+        .view-switcher button.active {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        .btn-primary:hover { background-color: #0056b3; }
+        .btn-success {
+             background-color: #28a745;
+             color: white;
+        }
+        .btn-success:hover { background-color: #218838; }
+        
+        /* Accordion Styles */
+        .accordion-header {
+            background-color: var(--light-gray);
+            color: var(--dark-gray);
+            cursor: pointer;
+            padding: 15px;
+            width: 100%;
+            text-align: left;
+            border: none;
+            border-bottom: 1px solid var(--border-color);
+            outline: none;
+            font-size: 1.1em;
+            font-weight: 500;
+        }
+        .accordion-header:hover, .accordion-header.active {
+            background-color: var(--medium-gray);
+        }
+        .accordion-header.active::after {
+            content: "\2212"; /* Minus sign */
+        }
+        .accordion-header::after {
+            content: '\002B'; /* Plus sign */
+            color: var(--dark-gray);
+            font-weight: bold;
+            float: right;
+            margin-left: 5px;
+        }
+        .accordion-content {
+            padding: 0 18px;
+            background-color: white;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.2s ease-out;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .accordion-content .form-group {
+            padding-top: 15px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .status {
+            margin-top: 10px;
+            font-style: italic;
+            color: #666;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Hub Editor</h1>
+    <div class="file-controls">
+        <button id="saveFileBtn" class="btn-primary">Save Changes</button>
+    </div>
+    <p id="status" class="status"></p>
+
+    <div class="view-switcher">
+        <button id="showDirectBtn">Direct Edit</button>
+        <button id="showFormsBtn" class="active">Form Edit</button>
+    </div>
+
+    <div id="direct-editor-section" class="hidden">
+        <h2>Direct Editor</h2>
+        <textarea id="editor" placeholder="Loading content..."></textarea>
+    </div>
+
+    <div id="form-editor-section">
+        <h2>Add Content via Form</h2>
+        
+        <div class="accordion-item">
+            <button class="accordion-header">Add URL List</button>
+            <div class="accordion-content">
+                <div class="form-group">
+                    <label for="listUrl">URL:</label>
+                    <input type="text" id="listUrl" placeholder="http://...">
+                    <button id="addListBtn" class="btn-success">Add List</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item">
+            <button class="accordion-header">Add MAC Portal</button>
+            <div class="accordion-content">
+                <div class="form-group">
+                    <label for="portalUrl">URL:</label>
+                    <input type="text" id="portalUrl" placeholder="http://iptvplatinum.net:80">
+                    <label for="portalMac">MAC Address:</label>
+                    <input type="text" id="portalMac" placeholder="00:1A:79:XX:XX:XX">
+                    <button id="addPortalBtn" class="btn-success">Add Portal</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item">
+            <button class="accordion-header">Add M3U Line</button>
+            <div class="accordion-content">
+                <div class="form-group">
+                    <label for="m3uUrl">M3U URL:</label>
+                    <input type="text" id="m3uUrl" placeholder="https://...">
+                    <label for="m3uName">Name:</label>
+                    <input type="text" id="m3uName" placeholder="Romania">
+                    <label for="m3uImg">Image URL:</label>
+                    <input type="text" id="m3uImg" placeholder="https://...">
+                    <button id="addM3uBtn" class="btn-success">Add M3U Line</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item">
+            <button class="accordion-header">Add EDEM Code</button>
+            <div class="accordion-content">
+                <div class="form-group">
+                    <label for="edemCode">Code:</label>
+                    <input type="text" id="edemCode" placeholder="9TGVS9U4CWHZSX">
+                    <button id="addEdemBtn" class="btn-success">Add EDEM</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const saveFileBtn = document.getElementById('saveFileBtn');
+    const editor = document.getElementById('editor');
+    const statusEl = document.getElementById('status');
+
+    const addListBtn = document.getElementById('addListBtn');
+    const addPortalBtn = document.getElementById('addPortalBtn');
+    const addM3uBtn = document.getElementById('addM3uBtn');
+    const addEdemBtn = document.getElementById('addEdemBtn');
+
+    const showDirectBtn = document.getElementById('showDirectBtn');
+    const showFormsBtn = document.getElementById('showFormsBtn');
+    const directEditorSection = document.getElementById('direct-editor-section');
+    const formEditorSection = document.getElementById('form-editor-section');
+
+    // View switching logic
+    showDirectBtn.addEventListener('click', () => {
+        directEditorSection.classList.remove('hidden');
+        formEditorSection.classList.add('hidden');
+        showDirectBtn.classList.add('active');
+        showFormsBtn.classList.remove('active');
+    });
+
+    showFormsBtn.addEventListener('click', () => {
+        directEditorSection.classList.add('hidden');
+        formEditorSection.classList.remove('hidden');
+        showFormsBtn.classList.add('active');
+        showDirectBtn.classList.remove('active');
+    });
+
+    // Accordion logic
+    const accordions = document.getElementsByClassName("accordion-header");
+    for (let i = 0; i < accordions.length; i++) {
+        accordions[i].addEventListener("click", function() {
+            this.classList.toggle("active");
+            const panel = this.nextElementSibling;
+            if (panel.style.maxHeight) {
+                panel.style.maxHeight = null;
+            } else {
+                panel.style.maxHeight = panel.scrollHeight + "px";
+            }
+        });
+    }
+
+    // Load initial file content
+    document.addEventListener('DOMContentLoaded', async () => {
+        try {
+            const response = await fetch('/api/lista');
+            if (!response.ok) {
+                throw new Error('Failed to load file.');
+            }
+            const content = await response.text();
+            editor.value = content;
+            statusEl.textContent = 'File loaded successfully.';
+        } catch (err) {
+            console.error(err);
+            editor.value = 'Could not load lista.txt.';
+            statusEl.textContent = 'Error loading file.';
+        }
+    });
+
+    saveFileBtn.addEventListener('click', async () => {
+        try {
+            statusEl.textContent = 'Saving...';
+            const response = await fetch('/api/lista', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain',
+                },
+                body: editor.value,
+            });
+            if (!response.ok) {
+                throw new Error('Failed to save file.');
+            }
+            statusEl.textContent = 'File saved successfully!';
+        } catch (err) {
+            console.error(err);
+            statusEl.textContent = 'Error saving file.';
+        }
+    });
+
+    function appendToEditor(text) {
+        const currentContent = editor.value;
+        const separator = currentContent.length > 0 && !currentContent.endsWith('\n') ? '\n' : '';
+        editor.value += separator + text + '\n';
+        statusEl.textContent = 'Content added to editor. Click "Save Changes" to update the file.';
+    }
+
+    addListBtn.addEventListener('click', () => {
+        const url = document.getElementById('listUrl').value.trim();
+        if (url) {
+            appendToEditor(url);
+            document.getElementById('listUrl').value = '';
+        } else {
+            statusEl.textContent = 'URL field cannot be empty.';
+        }
+    });
+
+    addPortalBtn.addEventListener('click', () => {
+        const url = document.getElementById('portalUrl').value.trim();
+        const mac = document.getElementById('portalMac').value.trim();
+        if (url && mac) {
+            const line = `${url} MAC : ${mac}`;
+            appendToEditor(line);
+            document.getElementById('portalUrl').value = '';
+            document.getElementById('portalMac').value = '';
+        } else {
+            statusEl.textContent = 'Portal URL and MAC Address fields cannot be empty.';
+        }
+    });
+
+    addM3uBtn.addEventListener('click', () => {
+        const url = document.getElementById('m3uUrl').value.trim();
+        const name = document.getElementById('m3uName').value.trim();
+        const img = document.getElementById('m3uImg').value.trim();
+        if (url && name && img) {
+            const line = `LinieM3U ${url} Denumire: ${name} Img: ${img}`;
+            appendToEditor(line);
+            document.getElementById('m3uUrl').value = '';
+            document.getElementById('m3uName').value = '';
+            document.getElementById('m3uImg').value = '';
+        } else {
+            statusEl.textContent = 'M3U URL, Name, and Image URL fields cannot be empty.';
+        }
+    });
+
+    addEdemBtn.addEventListener('click', () => {
+        const code = document.getElementById('edemCode').value.trim();
+        if (code) {
+            const line = `EDEM ${code}`;
+            appendToEditor(line);
+            document.getElementById('edemCode').value = '';
+        } else {
+            statusEl.textContent = 'EDEM Code field cannot be empty.';
+        }
+    });
+
+</script>
+
+</body>
+</html>
