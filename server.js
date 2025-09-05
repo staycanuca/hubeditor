@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
-const fs = require('fs');
+const { put, head, del } = require('@vercel/blob');
+const auth = require('basic-auth');
 
 const app = express();
 
@@ -12,25 +13,46 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+app.use(express.text());
+
+// Middleware de autentificare
+const authMiddleware = (req, res, next) => {
+    const credentials = auth(req);
+
+    if (!credentials || credentials.name !== 'hubuser' || credentials.pass !== '2025KodiRoHub!') {
+        res.setHeader('WWW-Authenticate', 'Basic realm="example"');
+        return res.status(401).send('Authentication required.');
+    } else {
+        return next();
+    }
+};
+
 // Route pentru /lista
-app.get('/lista', (req, res) => {
-    const filePath = path.join(__dirname, 'lista.txt');
-    console.log(`Calea completă a fișierului: ${filePath}`);
-    fs.access(filePath, fs.constants.R_OK, (accessErr) => {
-        if (accessErr) {
-            console.error(`Fișierul nu poate fi accesat:`, accessErr.message);
-            res.status(500).send("Fișierul lista.txt nu poate fi accesat.");
-            return;
+app.get('/lista', authMiddleware, async (req, res) => {
+    try {
+        const blob = await head('lista.txt');
+        const response = await fetch(blob.url);
+        const text = await response.text();
+        res.type('text/plain').send(text);
+    } catch (error) {
+        if (error.status === 404) {
+            res.type('text/plain').send('');
+        } else {
+            console.error('Error fetching blob:', error.message);
+            res.status(500).send('Could not load lista.txt.');
         }
-        fs.readFile(filePath, 'utf-8', (readErr, data) => {
-            if (readErr) {
-                console.error("Eroare la citirea fișierului lista.txt:", readErr.message);
-                res.status(500).send("Nu am putut încărca lista.txt.");
-                return;
-            }
-            res.type('text/plain').send(data);
-        });
-    });
+    }
+});
+
+app.post('/lista', authMiddleware, async (req, res) => {
+    const content = req.body;
+    try {
+        await put('lista.txt', content, { access: 'public' });
+        res.status(200).send('File saved successfully.');
+    } catch (error) {
+        console.error('Error writing blob:', error.message);
+        res.status(500).send('Could not save lista.txt.');
+    }
 });
 
 const PORT = process.env.PORT || 3000;

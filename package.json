@@ -12,6 +12,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@vercel/blob": "^1.1.1",
     "basic-auth": "^2.0.1",
     "express": "^5.1.0"
   },

@@ -270,7 +270,7 @@
     // Load initial file content
     document.addEventListener('DOMContentLoaded', async () => {
         try {
-            const response = await fetch('/api/lista');
+                        const response = await fetch('/lista');
             if (!response.ok) {
                 throw new Error('Failed to load file.');
             }
@@ -287,7 +287,7 @@
     saveFileBtn.addEventListener('click', async () => {
         try {
             statusEl.textContent = 'Saving...';
-            const response = await fetch('/api/lista', {
+                        const response = await fetch('/lista', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'text/plain',
